@@ -69,6 +69,21 @@ export const translations = {
       evaluating: 'Evaluating...',
       selectError: 'Please select a data source',
 
+      // Progress modal
+      progress: {
+        title: 'Evaluating Data',
+        steps: [
+          'Validating input data...',
+          'AI selecting scoring formula...',
+          'Calculating S.T.A.P. scores...',
+          'zkTLS verifying data source...',
+          'Generating AI analysis...',
+          'Saving to database...',
+          'Submitting result on-chain...',
+          'Done!',
+        ],
+      },
+
       // Preset options
       presets: {
         chainlink_eth_usd: { label: 'Chainlink ETH/USD', desc: 'Highly trusted price feed with fresh data' },
@@ -212,6 +227,21 @@ export const translations = {
       evaluateCustom: '评估自定义数据',
       evaluating: '评估中...',
       selectError: '请选择一个数据源',
+
+      // Progress modal
+      progress: {
+        title: '数据评估中',
+        steps: [
+          '验证输入数据...',
+          'AI 选择评分公式...',
+          '计算 S.T.A.P. 分数...',
+          'zkTLS 验证数据来源...',
+          '生成 AI 分析报告...',
+          '保存到数据库...',
+          '提交结果上链...',
+          '完成！',
+        ],
+      },
 
       // Preset options
       presets: {
