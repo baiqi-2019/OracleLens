@@ -4,7 +4,10 @@
  * Frontend zkTLS Verification Hook
  *
  * Uses Primus Labs zkTLS SDK in the browser with extension support.
- * This hook handles the entire attestation flow on the client side.
+ * This hook handles the attestation flow on the client side.
+ *
+ * Note: The sign() step is done via server API because it requires appSecret
+ * and can only be called in server environment.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -48,7 +51,6 @@ interface UseZkTlsReturn {
 
 // Environment variables (exposed to client via NEXT_PUBLIC_)
 const PRIMUS_APP_ID = process.env.NEXT_PUBLIC_PRIMUS_APP_ID || '';
-const PRIMUS_APP_SECRET = process.env.NEXT_PUBLIC_PRIMUS_APP_SECRET || '';
 const PRIMUS_TEMPLATE_ID = process.env.NEXT_PUBLIC_PRIMUS_TEMPLATE_ID || '';
 
 export function useZkTls(): UseZkTlsReturn {
@@ -81,8 +83,9 @@ export function useZkTls(): UseZkTlsReturn {
             return false;
           }
 
-          // Initialize with app credentials
-          const result = await sdk.init(PRIMUS_APP_ID, PRIMUS_APP_SECRET);
+          // Initialize with app ID only (no secret needed for client-side)
+          // The sign() step will be done on server
+          const result = await sdk.init(PRIMUS_APP_ID, '');
           console.log('[zkTLS Client] SDK initialized:', result);
 
           sdkRef.current = sdk;
@@ -121,6 +124,11 @@ export function useZkTls(): UseZkTlsReturn {
 
       // Step 1: Generate request params with template ID
       console.log('[zkTLS Client] Generating request for template:', PRIMUS_TEMPLATE_ID);
+
+      if (!PRIMUS_TEMPLATE_ID) {
+        throw new Error('PRIMUS_TEMPLATE_ID not configured');
+      }
+
       const request = sdk.generateRequestParams(PRIMUS_TEMPLATE_ID, userAddress);
 
       // Step 2: Set zkTLS mode
@@ -130,9 +138,21 @@ export function useZkTls(): UseZkTlsReturn {
       const requestStr = request.toJsonString();
       console.log('[zkTLS Client] Request generated');
 
-      // Step 4: Sign the request
-      const signedRequestStr = await sdk.sign(requestStr);
-      console.log('[zkTLS Client] Request signed');
+      // Step 4: Sign via server API (sign() requires appSecret which is server-only)
+      console.log('[zkTLS Client] Signing request via server...');
+      const signResponse = await fetch('/api/zktls-sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestStr }),
+      });
+
+      if (!signResponse.ok) {
+        const errData = await signResponse.json();
+        throw new Error(errData.error || 'Failed to sign request');
+      }
+
+      const { signedRequestStr } = await signResponse.json();
+      console.log('[zkTLS Client] Request signed by server');
 
       // Step 5: Start attestation (this will trigger browser extension popup)
       console.log('[zkTLS Client] Starting attestation...');
