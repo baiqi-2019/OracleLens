@@ -4,9 +4,11 @@
  */
 
 import { EvaluateRequest, EvaluateResponse } from './types';
+import { verifyOracleDataSource } from './zkTlsVerify';
+import { selectFormulaWithAI, generateAIAnalysis } from './aiProvider';
 
 // ============================================
-// Scoring Logic (inline to avoid monorepo import issues)
+// Scoring Logic
 // ============================================
 
 interface BaseScores {
@@ -103,17 +105,6 @@ const FORMULAS: Record<string, Formula> = {
   },
 };
 
-function selectFormula(dataType: string): Formula {
-  const type = dataType.toLowerCase();
-  if (type.includes('price') || type.includes('token') || type.includes('exchange')) {
-    return FORMULAS.price_feed_v1;
-  }
-  if (type.includes('weather') || type.includes('temperature')) {
-    return FORMULAS.weather_v1;
-  }
-  return FORMULAS.generic_v1;
-}
-
 // ============================================
 // Trust Level
 // ============================================
@@ -182,68 +173,6 @@ function generateExplanation(
 }
 
 // ============================================
-// AI Reasoning Generation
-// ============================================
-
-function generateAIReasoning(
-  oracleName: string,
-  dataType: string,
-  formula: Formula,
-  hasZkProof: boolean
-): string {
-  const parts: string[] = [];
-
-  parts.push(`AI Formula Selection Analysis`);
-  parts.push(`============================`);
-  parts.push('');
-  parts.push(`Selected: ${formula.name} (${formula.id})`);
-  parts.push('');
-
-  const oracleTrust = ORACLE_REPUTATION[oracleName.toLowerCase()];
-  if (oracleTrust) {
-    parts.push(`Oracle "${oracleName}" is recognized with ${Math.round(oracleTrust * 100)}% base trust.`);
-  } else {
-    parts.push(`Oracle "${oracleName}" is not in our trusted database - applying extra scrutiny.`);
-  }
-
-  parts.push('');
-  if (dataType.toLowerCase().includes('price')) {
-    parts.push('Data type is financial price data - using formula optimized for:');
-    parts.push('  - High accuracy requirements (30% weight)');
-    parts.push('  - Time sensitivity (30% weight)');
-  } else if (dataType.toLowerCase().includes('weather')) {
-    parts.push('Data type is weather data - using formula that:');
-    parts.push('  - Prioritizes source reputation (35% weight)');
-    parts.push('  - Allows for natural variation');
-  } else {
-    parts.push('Using balanced generic formula with equal weights.');
-  }
-
-  parts.push('');
-  if (hasZkProof) {
-    parts.push('zkTLS proof is available - this provides strong authenticity guarantees.');
-  } else {
-    parts.push('No zkTLS proof provided - relying on other factors for credibility assessment.');
-  }
-
-  return parts.join('\n');
-}
-
-// ============================================
-// Mock zkTLS Verification
-// ============================================
-
-function mockZkTlsVerification(): { verified: boolean; proofHash: string } {
-  // Simulate zkTLS verification
-  const verified = Math.random() > 0.1; // 90% success rate for demo
-  const proofHash = '0x' + Array.from({ length: 64 }, () =>
-    Math.floor(Math.random() * 16).toString(16)
-  ).join('');
-
-  return { verified, proofHash };
-}
-
-// ============================================
 // Main Evaluation Function
 // ============================================
 
@@ -273,9 +202,16 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
       request.dataType.includes('weather') ? 5 : 1
     );
 
-    // Mock zkTLS verification
-    const { verified: zkVerified, proofHash } = mockZkTlsVerification();
-    const proofScore = calculateProofScore(true, zkVerified);
+    // zkTLS verification (uses real Primus SDK if credentials exist, otherwise mock)
+    const zkResult = await verifyOracleDataSource({
+      sourceUrl: request.sourceUrl || '',
+      oracleName: request.oracleName,
+      dataType: request.dataType,
+      dataValue: request.dataValue,
+    });
+    const zkVerified = zkResult.verified;
+    const proofHash = zkResult.proofHash;
+    const proofScore = calculateProofScore(zkResult.success, zkVerified);
 
     const baseScores: BaseScores = {
       source: sourceScore,
@@ -284,8 +220,14 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
       proof: proofScore,
     };
 
-    // Select formula
-    const formula = selectFormula(request.dataType);
+    // AI-powered formula selection (uses Claude if credentials exist, otherwise rule-based)
+    const formulaSelection = await selectFormulaWithAI(
+      request.oracleName,
+      request.dataType,
+      request.dataValue,
+      request.sourceUrl
+    );
+    const formula = FORMULAS[formulaSelection.formulaId] ?? FORMULAS.generic_v1;
 
     // Calculate weighted scores
     const weightedSource = baseScores.source * formula.weights.source;
@@ -298,7 +240,18 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
 
     const trustLevel = getTrustLevel(finalScore, formula.minAcceptableScore);
     const explanation = generateExplanation(baseScores, formula, finalScore, trustLevel);
-    const aiReasoning = generateAIReasoning(request.oracleName, request.dataType, formula, true);
+
+    // AI-powered analysis reasoning (uses Claude if credentials exist, otherwise rule-based)
+    const aiReasoning = await generateAIAnalysis({
+      oracleName: request.oracleName,
+      dataType: request.dataType,
+      dataValue: request.dataValue,
+      sourceUrl: request.sourceUrl,
+      baseScores,
+      zkVerified,
+      finalScore,
+      trustLevel,
+    });
 
     return {
       success: true,

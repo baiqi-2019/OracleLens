@@ -2,18 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/LanguageContext';
 import { MOCK_ORACLE_DATA, MockDataKey, EvaluateRequest } from '@/lib/types';
 
 type Tab = 'preset' | 'custom';
 
 export default function SubmitPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('preset');
   const [selectedPreset, setSelectedPreset] = useState<MockDataKey | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Custom form state
   const [customData, setCustomData] = useState({
     oracleName: '',
     dataType: 'price_feed',
@@ -25,7 +26,7 @@ export default function SubmitPage() {
 
   const handlePresetSubmit = async () => {
     if (!selectedPreset) {
-      setError('Please select a data source');
+      setError(t.submit.selectError);
       return;
     }
 
@@ -46,7 +47,6 @@ export default function SubmitPage() {
         throw new Error(result.error || 'Evaluation failed');
       }
 
-      // Store result and navigate
       sessionStorage.setItem('evaluationResult', JSON.stringify(result));
       sessionStorage.setItem('evaluationRequest', JSON.stringify(data));
       router.push('/result');
@@ -99,107 +99,113 @@ export default function SubmitPage() {
     }
   };
 
-  const presetOptions: { key: MockDataKey; label: string; description: string }[] = [
-    {
-      key: 'chainlink_eth_usd',
-      label: 'Chainlink ETH/USD',
-      description: 'Highly trusted price feed with fresh data',
-    },
-    {
-      key: 'pyth_btc_usd',
-      label: 'Pyth BTC/USD',
-      description: 'Trusted price feed with very fresh data',
-    },
-    {
-      key: 'weather_nyc',
-      label: 'Weather NYC',
-      description: 'Weather data from WeatherAPI',
-    },
-    {
-      key: 'suspicious_unknown',
-      label: 'Suspicious Unknown Oracle',
-      description: 'Unknown source with stale, deviating data',
-    },
-  ];
+  const presetKeys: MockDataKey[] = ['chainlink_eth_usd', 'pyth_btc_usd', 'weather_nyc', 'suspicious_unknown'];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Evaluate Oracle Data</h1>
-      <p className="text-gray-600 mb-8">
-        Submit oracle data to receive a credibility score based on source reliability,
-        time freshness, consistency, and zkTLS verification.
-      </p>
+    <div className="max-w-3xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <div className="inline-block mb-4">
+          <span className="badge badge-brand">
+            S.T.A.P. Evaluation
+          </span>
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-3">{t.submit.title}</h1>
+        <p className="text-gray-600">{t.submit.description}</p>
+      </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
-        <button
-          onClick={() => setActiveTab('preset')}
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition ${
-            activeTab === 'preset'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Preset Examples
-        </button>
-        <button
-          onClick={() => setActiveTab('custom')}
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition ${
-            activeTab === 'custom'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Custom Data
-        </button>
+      <div className="flex justify-center mb-8">
+        <div className="tab-container">
+          <button
+            onClick={() => setActiveTab('preset')}
+            className={`tab-button ${activeTab === 'preset' ? 'active' : ''}`}
+          >
+            {t.submit.tabPreset}
+          </button>
+          <button
+            onClick={() => setActiveTab('custom')}
+            className={`tab-button ${activeTab === 'custom' ? 'active' : ''}`}
+          >
+            {t.submit.tabCustom}
+          </button>
+        </div>
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="error-box mb-6">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-red-700">{error}</span>
+          </div>
         </div>
       )}
 
       {/* Preset Tab */}
       {activeTab === 'preset' && (
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Select a preset data source to test the evaluation:
-          </p>
+        <div className="space-y-6">
+          <p className="text-sm text-gray-600">{t.submit.selectPrompt}</p>
 
-          <div className="space-y-3">
-            {presetOptions.map((option) => (
-              <label
-                key={option.key}
-                className={`block p-4 border rounded-lg cursor-pointer transition ${
-                  selectedPreset === option.key
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-start">
-                  <input
-                    type="radio"
-                    name="preset"
-                    value={option.key}
-                    checked={selectedPreset === option.key}
-                    onChange={() => setSelectedPreset(option.key)}
-                    className="mt-1 mr-3"
-                  />
-                  <div>
-                    <div className="font-medium text-gray-900">{option.label}</div>
-                    <div className="text-sm text-gray-600">{option.description}</div>
+          <div className="grid gap-4">
+            {presetKeys.map((key) => {
+              const preset = t.submit.presets[key];
+              const isSuspicious = key === 'suspicious_unknown';
+
+              return (
+                <label
+                  key={key}
+                  className={`radio-card ${selectedPreset === key ? 'selected' : ''}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="radio-dot mt-0.5">
+                      {selectedPreset === key && <span className="sr-only">Selected</span>}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <span className={`font-semibold ${isSuspicious ? 'text-amber-600' : 'text-gray-900'}`}>
+                          {preset.label}
+                        </span>
+                        {isSuspicious && (
+                          <span className="badge badge-warning">
+                            TEST
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">{preset.desc}</p>
+                    </div>
+                    <div className={`w-3 h-3 rounded-full ${
+                      key === 'chainlink_eth_usd' ? 'bg-emerald-500' :
+                      key === 'pyth_btc_usd' ? 'bg-emerald-500' :
+                      key === 'weather_nyc' ? 'bg-blue-500' :
+                      'bg-amber-500'
+                    }`}></div>
+                    <input
+                      type="radio"
+                      name="preset"
+                      value={key}
+                      checked={selectedPreset === key}
+                      onChange={() => setSelectedPreset(key)}
+                      className="sr-only"
+                    />
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
 
+          {/* Data Preview */}
           {selectedPreset && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-2">Data Preview</h3>
-              <pre className="text-xs text-gray-600 overflow-auto">
+            <div className="card p-5">
+              <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#4A90D9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                {t.submit.dataPreview}
+              </h3>
+              <pre className="code-block text-xs overflow-auto">
                 {JSON.stringify(MOCK_ORACLE_DATA[selectedPreset], null, 2)}
               </pre>
             </div>
@@ -208,117 +214,137 @@ export default function SubmitPage() {
           <button
             onClick={handlePresetSubmit}
             disabled={!selectedPreset || isLoading}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition ${
+            className={`w-full py-4 rounded-xl font-semibold text-lg transition-all ${
               !selectedPreset || isLoading
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'btn-primary'
             }`}
           >
-            {isLoading ? 'Evaluating...' : 'Evaluate Selected Data'}
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-3">
+                <div className="spinner w-5 h-5"></div>
+                {t.submit.evaluating}
+              </span>
+            ) : (
+              t.submit.evaluateSelected
+            )}
           </button>
         </div>
       )}
 
       {/* Custom Tab */}
       {activeTab === 'custom' && (
-        <form onSubmit={handleCustomSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Oracle Name *
-            </label>
-            <input
-              type="text"
-              value={customData.oracleName}
-              onChange={(e) => setCustomData({ ...customData, oracleName: e.target.value })}
-              placeholder="e.g., Chainlink, Pyth, Custom Oracle"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+        <form onSubmit={handleCustomSubmit} className="space-y-5">
+          <div className="card p-6 space-y-5">
+            {/* Oracle Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.oracleName} <span className="text-[#4A90D9]">*</span>
+              </label>
+              <input
+                type="text"
+                value={customData.oracleName}
+                onChange={(e) => setCustomData({ ...customData, oracleName: e.target.value })}
+                placeholder={t.submit.form.oracleNamePlaceholder}
+                required
+                className="input-field"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data Type *
-            </label>
-            <select
-              value={customData.dataType}
-              onChange={(e) => setCustomData({ ...customData, dataType: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="price_feed">Price Feed</option>
-              <option value="weather">Weather Data</option>
-              <option value="generic">Generic Data</option>
-            </select>
-          </div>
+            {/* Data Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.dataType} <span className="text-[#4A90D9]">*</span>
+              </label>
+              <select
+                value={customData.dataType}
+                onChange={(e) => setCustomData({ ...customData, dataType: e.target.value })}
+                className="select-field"
+              >
+                <option value="price_feed">{t.submit.form.dataTypes.price_feed}</option>
+                <option value="weather">{t.submit.form.dataTypes.weather}</option>
+                <option value="generic">{t.submit.form.dataTypes.generic}</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Asset / Label *
-            </label>
-            <input
-              type="text"
-              value={customData.asset}
-              onChange={(e) => setCustomData({ ...customData, asset: e.target.value })}
-              placeholder="e.g., ETH/USD, BTC/USD, NYC Temperature"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+            {/* Asset */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.asset} <span className="text-[#4A90D9]">*</span>
+              </label>
+              <input
+                type="text"
+                value={customData.asset}
+                onChange={(e) => setCustomData({ ...customData, asset: e.target.value })}
+                placeholder={t.submit.form.assetPlaceholder}
+                required
+                className="input-field"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Value *
-            </label>
-            <input
-              type="number"
-              step="any"
-              value={customData.value}
-              onChange={(e) => setCustomData({ ...customData, value: e.target.value })}
-              placeholder="e.g., 2500.00"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+            {/* Value */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.value} <span className="text-[#4A90D9]">*</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={customData.value}
+                onChange={(e) => setCustomData({ ...customData, value: e.target.value })}
+                placeholder={t.submit.form.valuePlaceholder}
+                required
+                className="input-field"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Reference Values (optional)
-            </label>
-            <input
-              type="text"
-              value={customData.referenceValues}
-              onChange={(e) => setCustomData({ ...customData, referenceValues: e.target.value })}
-              placeholder="e.g., 2498, 2502, 2501 (comma-separated)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Values from other oracles to compare against
-            </p>
-          </div>
+            {/* Reference Values */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.referenceValues}
+              </label>
+              <input
+                type="text"
+                value={customData.referenceValues}
+                onChange={(e) => setCustomData({ ...customData, referenceValues: e.target.value })}
+                placeholder={t.submit.form.referenceValuesPlaceholder}
+                className="input-field"
+              />
+              <p className="text-xs text-gray-500 mt-1.5">{t.submit.form.referenceValuesHint}</p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Source URL (optional)
-            </label>
-            <input
-              type="url"
-              value={customData.sourceUrl}
-              onChange={(e) => setCustomData({ ...customData, sourceUrl: e.target.value })}
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            {/* Source URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                {t.submit.form.sourceUrl}
+              </label>
+              <input
+                type="url"
+                value={customData.sourceUrl}
+                onChange={(e) => setCustomData({ ...customData, sourceUrl: e.target.value })}
+                placeholder={t.submit.form.sourceUrlPlaceholder}
+                className="input-field"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition ${
+            className={`w-full py-4 rounded-xl font-semibold text-lg transition-all ${
               isLoading
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'btn-primary'
             }`}
           >
-            {isLoading ? 'Evaluating...' : 'Evaluate Custom Data'}
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-3">
+                <div className="spinner w-5 h-5"></div>
+                {t.submit.evaluating}
+              </span>
+            ) : (
+              t.submit.evaluateCustom
+            )}
           </button>
         </form>
       )}
