@@ -56,6 +56,25 @@ export async function POST(request: NextRequest) {
 
     // Sign the request using appSecret
     console.log('[zkTLS Sign API] Signing request...');
+
+    // Validate the request contains appId before signing
+    try {
+      const parsed = JSON.parse(requestStr);
+      console.log('[zkTLS Sign API] Request appId:', parsed.appId || '(empty)');
+      console.log('[zkTLS Sign API] Request attTemplateID:', parsed.attTemplateID || '(empty)');
+      if (!parsed.appId) {
+        return NextResponse.json(
+          { error: 'Request is missing appId. Check NEXT_PUBLIC_PRIMUS_APP_ID environment variable.' },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid requestStr JSON' },
+        { status: 400 }
+      );
+    }
+
     const signedRequestStr = await sdk.sign(requestStr);
     console.log('[zkTLS Sign API] Request signed successfully');
 

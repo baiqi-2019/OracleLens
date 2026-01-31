@@ -53,6 +53,12 @@ interface UseZkTlsReturn {
 const PRIMUS_APP_ID = process.env.NEXT_PUBLIC_PRIMUS_APP_ID || '';
 const PRIMUS_TEMPLATE_ID = process.env.NEXT_PUBLIC_PRIMUS_TEMPLATE_ID || '';
 
+// Debug: Log environment variables at module load time
+if (typeof window !== 'undefined') {
+  console.log('[zkTLS Config] PRIMUS_APP_ID:', PRIMUS_APP_ID ? `${PRIMUS_APP_ID.substring(0, 10)}...` : '(empty)');
+  console.log('[zkTLS Config] PRIMUS_TEMPLATE_ID:', PRIMUS_TEMPLATE_ID || '(empty)');
+}
+
 export function useZkTls(): UseZkTlsReturn {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isExtensionInstalled, setIsExtensionInstalled] = useState(false);
@@ -122,23 +128,31 @@ export function useZkTls(): UseZkTlsReturn {
     try {
       const sdk = sdkRef.current;
 
-      // Step 1: Generate request params with template ID
-      console.log('[zkTLS Client] Generating request for template:', PRIMUS_TEMPLATE_ID);
+      // Step 1: Validate environment variables
+      console.log('[zkTLS Client] Validating configuration...');
+      console.log('[zkTLS Client] APP_ID:', PRIMUS_APP_ID || '(empty)');
+      console.log('[zkTLS Client] TEMPLATE_ID:', PRIMUS_TEMPLATE_ID || '(empty)');
 
-      if (!PRIMUS_TEMPLATE_ID) {
-        throw new Error('PRIMUS_TEMPLATE_ID not configured');
+      if (!PRIMUS_APP_ID) {
+        throw new Error('NEXT_PUBLIC_PRIMUS_APP_ID not configured - please check Vercel environment variables');
       }
 
+      if (!PRIMUS_TEMPLATE_ID) {
+        throw new Error('NEXT_PUBLIC_PRIMUS_TEMPLATE_ID not configured - please check Vercel environment variables');
+      }
+
+      // Step 2: Generate request params with template ID
+      console.log('[zkTLS Client] Generating request for template:', PRIMUS_TEMPLATE_ID);
       const request = sdk.generateRequestParams(PRIMUS_TEMPLATE_ID, userAddress);
 
-      // Step 2: Set zkTLS mode
+      // Step 3: Set zkTLS mode
       request.setAttMode({ algorithmType: 'proxytls' });
 
-      // Step 3: Convert to JSON string
+      // Step 4: Convert to JSON string
       const requestStr = request.toJsonString();
-      console.log('[zkTLS Client] Request generated');
+      console.log('[zkTLS Client] Request generated, requestStr length:', requestStr.length);
 
-      // Step 4: Sign via server API (sign() requires appSecret which is server-only)
+      // Step 5: Sign via server API (sign() requires appSecret which is server-only)
       console.log('[zkTLS Client] Signing request via server...');
       const signResponse = await fetch('/api/zktls-sign', {
         method: 'POST',
@@ -154,12 +168,13 @@ export function useZkTls(): UseZkTlsReturn {
       const { signedRequestStr } = await signResponse.json();
       console.log('[zkTLS Client] Request signed by server');
 
-      // Step 5: Start attestation (this will trigger browser extension popup)
+      // Step 6: Start attestation (this will trigger browser extension popup)
       console.log('[zkTLS Client] Starting attestation...');
+      console.log('[zkTLS Client] signedRequestStr length:', signedRequestStr.length);
       const attestation: Attestation = await sdk.startAttestation(signedRequestStr);
       console.log('[zkTLS Client] Attestation received:', attestation);
 
-      // Step 6: Verify attestation
+      // Step 7: Verify attestation
       const verified = sdk.verifyAttestation(attestation);
       console.log('[zkTLS Client] Verification result:', verified);
 
