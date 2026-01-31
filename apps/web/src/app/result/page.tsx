@@ -260,6 +260,72 @@ export default function ResultPage() {
               </div>
             </div>
           </div>
+
+          {/* On-Chain Record */}
+          {result.onChain && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+                {t.result.onChainTitle}
+              </h2>
+              <div className="space-y-3">
+                {/* Status */}
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    result.onChain.mode === 'skipped' ? 'bg-gray-400' :
+                    result.onChain.success ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className={`font-medium ${
+                    result.onChain.mode === 'skipped' ? 'text-gray-600' :
+                    result.onChain.success ? 'text-emerald-600' : 'text-red-600'
+                  }`}>
+                    {result.onChain.mode === 'skipped' ? t.result.onChainSkipped :
+                     result.onChain.success ? t.result.onChainSuccess : t.result.onChainFailed}
+                  </span>
+                </div>
+
+                {/* Transaction Hash */}
+                {result.onChain.txHash && (
+                  <div>
+                    <span className="text-gray-600 text-sm">{t.result.txHash}:</span>
+                    <code className="block mt-2 text-xs bg-gray-100 px-4 py-3 rounded-lg text-gray-700 break-all font-mono border border-gray-200">
+                      {result.onChain.txHash}
+                    </code>
+                    <a
+                      href={`https://sepolia.etherscan.io/tx/${result.onChain.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 mt-2 text-sm text-[#4A90D9] hover:text-[#5B4BC4] transition-colors"
+                    >
+                      {t.result.viewOnExplorer}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+
+                {/* Block Number */}
+                {result.onChain.blockNumber && (
+                  <div className="flex justify-between py-2 border-t border-gray-100">
+                    <span className="text-gray-600 text-sm">{t.result.blockNumber}:</span>
+                    <span className="text-gray-900 font-mono text-sm">{result.onChain.blockNumber}</span>
+                  </div>
+                )}
+
+                {/* Error */}
+                {result.onChain.error && (
+                  <div className="mt-2 p-3 rounded-lg bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-600">{result.onChain.error}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column */}

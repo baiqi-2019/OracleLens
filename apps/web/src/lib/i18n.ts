@@ -148,6 +148,15 @@ export const translations = {
       zkNotVerified: 'Not Verified',
       proofHash: 'Proof Hash',
 
+      // On-chain
+      onChainTitle: 'On-Chain Record',
+      onChainSuccess: 'Submitted',
+      onChainSkipped: 'Skipped',
+      onChainFailed: 'Failed',
+      txHash: 'Transaction Hash',
+      blockNumber: 'Block Number',
+      viewOnExplorer: 'View on Etherscan',
+
       explanation: 'Explanation',
       aiAnalysis: 'AI Analysis',
 
@@ -306,6 +315,15 @@ export const translations = {
       zkVerified: '已验证',
       zkNotVerified: '未验证',
       proofHash: '证明哈希',
+
+      // On-chain
+      onChainTitle: '链上记录',
+      onChainSuccess: '已提交',
+      onChainSkipped: '已跳过',
+      onChainFailed: '失败',
+      txHash: '交易哈希',
+      blockNumber: '区块高度',
+      viewOnExplorer: '在 Etherscan 查看',
 
       explanation: '说明',
       aiAnalysis: 'AI 分析',

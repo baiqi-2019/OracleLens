@@ -8,6 +8,11 @@
  * - PRIMUS_APP_ID: Application ID from Primus Developer Hub
  * - PRIMUS_APP_SECRET: Application secret
  * - PRIMUS_TEMPLATE_ID: Default template ID for attestations
+ *
+ * Flow:
+ * 1. Data is stored via /api/oracle-data/[requestId] endpoint
+ * 2. zkTLS SDK fetches this endpoint and creates proof
+ * 3. Proof hash is returned and stored with evaluation
  */
 
 import { createHash } from 'crypto';
@@ -27,6 +32,7 @@ interface ZkVerificationResult {
 }
 
 interface OracleDataForVerification {
+  requestId: string;
   sourceUrl: string;
   oracleName: string;
   dataType: string;
@@ -70,14 +76,28 @@ async function realPrimusVerification(
   const templateId = process.env.PRIMUS_TEMPLATE_ID;
   const userAddress = '0x' + createHash('sha256').update(data.oracleName).digest('hex').substring(0, 40);
 
+  // Construct the OracleLens data endpoint URL for verification
+  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const dataEndpoint = `${baseUrl}/api/oracle-data/${data.requestId}`;
+
   try {
-    // Generate attestation request
+    // Generate attestation request targeting our oracle data endpoint
     const request = primusSdk.generateRequestParams(templateId, userAddress);
     request.setAttMode({ algorithmType: 'proxytls' });
+
+    // Configure the request to fetch from our oracle data endpoint
+    // This allows zkTLS to prove the data came from OracleLens server
+    request.setUrl(dataEndpoint);
+    request.setMethod('GET');
+    request.setResponseFields(['requestId', 'oracle', 'data', 'metadata']);
+
     const requestStr = request.toJsonString();
     const signedRequest = await primusSdk.sign(requestStr);
 
     // Execute attestation
+    console.log(`[zkTLS] Starting attestation for ${dataEndpoint}`);
     const attestation = await primusSdk.startAttestation(signedRequest);
 
     // Verify attestation
@@ -96,8 +116,10 @@ async function realPrimusVerification(
     // Extract domain
     let verifiedDomain: string | undefined;
     try {
-      verifiedDomain = new URL(attestation.request?.url).hostname;
+      verifiedDomain = new URL(attestation.request?.url || dataEndpoint).hostname;
     } catch { /* ignore */ }
+
+    console.log(`[zkTLS] Attestation complete: verified=${verified}, domain=${verifiedDomain}`);
 
     return {
       success: true,
@@ -108,6 +130,7 @@ async function realPrimusVerification(
       mode: 'real',
     };
   } catch (error) {
+    console.error('[zkTLS] Real verification failed:', error);
     return {
       success: false,
       verified: false,

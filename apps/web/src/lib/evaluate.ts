@@ -6,6 +6,7 @@
 import { EvaluateRequest, EvaluateResponse } from './types';
 import { verifyOracleDataSource } from './zkTlsVerify';
 import { selectFormulaWithAI, generateAIAnalysis } from './aiProvider';
+import { storePendingVerification } from '@/app/api/oracle-data/[requestId]/route';
 
 // ============================================
 // Scoring Logic
@@ -202,8 +203,18 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
       request.dataType.includes('weather') ? 5 : 1
     );
 
+    // Store pending verification data for zkTLS endpoint
+    storePendingVerification(requestId, {
+      oracleName: request.oracleName,
+      dataType: request.dataType,
+      dataValue: request.dataValue,
+      sourceUrl: request.sourceUrl,
+      referenceValues: request.referenceValues,
+    });
+
     // zkTLS verification (uses real Primus SDK if credentials exist, otherwise mock)
     const zkResult = await verifyOracleDataSource({
+      requestId,
       sourceUrl: request.sourceUrl || '',
       oracleName: request.oracleName,
       dataType: request.dataType,

@@ -43,6 +43,15 @@ export interface EvaluateResponse {
   zkVerified: boolean;
   proofHash: string;
 
+  // On-chain submission result
+  onChain?: {
+    success: boolean;
+    txHash?: string;
+    blockNumber?: number;
+    mode: 'real' | 'skipped';
+    error?: string;
+  };
+
   // Timestamps
   timestamp: number;
 
