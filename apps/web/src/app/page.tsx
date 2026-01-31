@@ -1,10 +1,22 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
 
 export default function Home() {
   const { t } = useLanguage();
+
+  // Expose oracle-data API endpoint for Primus zkTLS template discovery
+  useEffect(() => {
+    // Make a sample request to oracle-data endpoint so Primus can discover it
+    const sampleRequestId = 'sample_zktls_template';
+    fetch(`/api/oracle-data/${sampleRequestId}`)
+      .then(res => res.json())
+      .catch(() => {
+        // Expected to fail with 404, but the request URL will be captured by Primus
+      });
+  }, []);
 
   return (
     <div className="space-y-16">

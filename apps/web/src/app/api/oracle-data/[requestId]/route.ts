@@ -70,6 +70,39 @@ export async function GET(
 ) {
   const { requestId } = await context.params;
 
+  // Sample data for Primus zkTLS template discovery
+  if (requestId === 'sample_zktls_template') {
+    return NextResponse.json({
+      requestId: 'sample_zktls_template',
+      oracle: {
+        name: 'Chainlink',
+        type: 'price_feed',
+        verified: true,
+      },
+      data: {
+        asset: 'ETH/USD',
+        price: 2534.89,
+        timestamp: Date.now(),
+      },
+      metadata: {
+        source: 'https://data.chain.link',
+        referenceValues: [2532.50, 2535.20, 2534.10],
+        timestamp: Date.now(),
+        version: '1.0.0',
+      },
+      signature: {
+        algorithm: 'ORACLE_LENS_V1',
+        server: 'oraclelens.xyz',
+      },
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-OracleLens-Version': '1.0.0',
+        'X-OracleLens-RequestId': requestId,
+      },
+    });
+  }
+
   // Try to get from pending verifications first
   let data = pendingVerifications.get(requestId);
 
