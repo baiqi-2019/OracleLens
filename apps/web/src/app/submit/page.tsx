@@ -137,7 +137,7 @@ export default function SubmitPage() {
   const apiDoneRef = useRef(false);
 
   // zkTLS hook
-  const { isInitialized: zkInitialized, isExtensionInstalled, startVerification } = useZkTls();
+  const { isInitialized: zkInitialized, isExtensionInstalled, startVerification, waitForInit } = useZkTls();
 
   const [customData, setCustomData] = useState({
     oracleName: '',
@@ -213,18 +213,33 @@ export default function SubmitPage() {
     try {
       // Step 1: Frontend zkTLS verification (if extension is available)
       let zkTlsResult = null;
-      if (zkInitialized && isExtensionInstalled) {
-        console.log('[Submit] Starting frontend zkTLS verification...');
-        // Generate a user address based on oracle name for attestation
-        const userAddress = '0x' + Array.from(
-          new TextEncoder().encode(requestData.oracleName)
-        ).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40).padEnd(40, '0');
 
-        try {
-          zkTlsResult = await startVerification(userAddress);
-          console.log('[Submit] zkTLS verification result:', zkTlsResult);
-        } catch (zkErr) {
-          console.warn('[Submit] zkTLS verification failed, continuing with server fallback:', zkErr);
+      // Check if extension is available by looking at window.primus directly
+      // This is more reliable than hook state which may not be updated yet
+      const hasExtension = typeof window !== 'undefined' && !!(window as any).primus;
+      console.log('[Submit] Extension check - hasExtension:', hasExtension, 'zkInitialized:', zkInitialized, 'isExtensionInstalled:', isExtensionInstalled);
+
+      if (hasExtension) {
+        // Wait for SDK to initialize using the promise-based approach
+        console.log('[Submit] Primus extension detected, waiting for SDK initialization...');
+        const initialized = await waitForInit();
+        console.log('[Submit] SDK initialization result:', initialized);
+
+        if (initialized) {
+          console.log('[Submit] Starting frontend zkTLS verification...');
+          // Generate a user address based on oracle name for attestation
+          const userAddress = '0x' + Array.from(
+            new TextEncoder().encode(requestData.oracleName)
+          ).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40).padEnd(40, '0');
+
+          try {
+            zkTlsResult = await startVerification(userAddress);
+            console.log('[Submit] zkTLS verification result:', zkTlsResult);
+          } catch (zkErr) {
+            console.warn('[Submit] zkTLS verification failed, continuing with server fallback:', zkErr);
+          }
+        } else {
+          console.log('[Submit] SDK init failed, using server-side verification');
         }
       } else {
         console.log('[Submit] zkTLS extension not available, using server-side verification');

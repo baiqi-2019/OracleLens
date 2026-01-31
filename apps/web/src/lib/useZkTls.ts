@@ -47,6 +47,7 @@ interface UseZkTlsReturn {
   isLoading: boolean;
   error: string | null;
   startVerification: (userAddress: string) => Promise<ZkTlsResult>;
+  waitForInit: () => Promise<boolean>;
 }
 
 // Environment variables (exposed to client via NEXT_PUBLIC_)
@@ -218,11 +219,20 @@ export function useZkTls(): UseZkTlsReturn {
     }
   }, [isInitialized]);
 
+  // Function to wait for SDK initialization
+  const waitForInit = useCallback(async (): Promise<boolean> => {
+    if (initPromiseRef.current) {
+      return initPromiseRef.current;
+    }
+    return isInitialized;
+  }, [isInitialized]);
+
   return {
     isInitialized,
     isExtensionInstalled,
     isLoading,
     error,
     startVerification,
+    waitForInit,
   };
 }
