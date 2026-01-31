@@ -212,17 +212,34 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
       referenceValues: request.referenceValues,
     });
 
-    // zkTLS verification (uses real Primus SDK if credentials exist, otherwise mock)
-    const zkResult = await verifyOracleDataSource({
-      requestId,
-      sourceUrl: request.sourceUrl || '',
-      oracleName: request.oracleName,
-      dataType: request.dataType,
-      dataValue: request.dataValue,
-    });
-    const zkVerified = zkResult.verified;
-    const proofHash = zkResult.proofHash;
-    const proofScore = calculateProofScore(zkResult.success, zkVerified);
+    // zkTLS verification - prefer client-side result if available (real browser extension)
+    let zkVerified: boolean;
+    let proofHash: string;
+    let zkMode: 'real' | 'mock' | 'client';
+
+    if (request.clientZkTls && request.clientZkTls.mode === 'real') {
+      // Use frontend zkTLS result from browser extension
+      console.log('[zkTLS] Using client-side verification result from browser extension');
+      zkVerified = request.clientZkTls.verified;
+      proofHash = request.clientZkTls.proofHash;
+      zkMode = 'client';
+      console.log(`[zkTLS] Client result: verified=${zkVerified}, proofHash=${proofHash}`);
+    } else {
+      // Fallback to server-side verification (will use mock since startAttestation needs browser)
+      console.log('[zkTLS] No client zkTLS result, using server-side verification');
+      const zkResult = await verifyOracleDataSource({
+        requestId,
+        sourceUrl: request.sourceUrl || '',
+        oracleName: request.oracleName,
+        dataType: request.dataType,
+        dataValue: request.dataValue,
+      });
+      zkVerified = zkResult.verified;
+      proofHash = zkResult.proofHash;
+      zkMode = zkResult.mode;
+    }
+
+    const proofScore = calculateProofScore(true, zkVerified);
 
     const baseScores: BaseScores = {
       source: sourceScore,
@@ -281,6 +298,7 @@ export async function evaluateOracleData(request: EvaluateRequest): Promise<Eval
       aiReasoning,
       zkVerified,
       proofHash,
+      zkMode,
       timestamp,
     };
   } catch (error) {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { MOCK_ORACLE_DATA, MockDataKey, EvaluateRequest } from '@/lib/types';
+import { useZkTls } from '@/lib/useZkTls';
 
 type Tab = 'preset' | 'custom';
 
@@ -135,6 +136,9 @@ export default function SubmitPage() {
   const pendingResultRef = useRef<{ result: any; request: any } | null>(null);
   const apiDoneRef = useRef(false);
 
+  // zkTLS hook
+  const { isInitialized: zkInitialized, isExtensionInstalled, startVerification } = useZkTls();
+
   const [customData, setCustomData] = useState({
     oracleName: '',
     dataType: 'price_feed',
@@ -207,10 +211,39 @@ export default function SubmitPage() {
     startProgress();
 
     try {
+      // Step 1: Frontend zkTLS verification (if extension is available)
+      let zkTlsResult = null;
+      if (zkInitialized && isExtensionInstalled) {
+        console.log('[Submit] Starting frontend zkTLS verification...');
+        // Generate a user address based on oracle name for attestation
+        const userAddress = '0x' + Array.from(
+          new TextEncoder().encode(requestData.oracleName)
+        ).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40).padEnd(40, '0');
+
+        try {
+          zkTlsResult = await startVerification(userAddress);
+          console.log('[Submit] zkTLS verification result:', zkTlsResult);
+        } catch (zkErr) {
+          console.warn('[Submit] zkTLS verification failed, continuing with server fallback:', zkErr);
+        }
+      } else {
+        console.log('[Submit] zkTLS extension not available, using server-side verification');
+      }
+
+      // Step 2: Call backend API with zkTLS result
       const response = await fetch('/api/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          ...requestData,
+          // Include frontend zkTLS result if available
+          clientZkTls: zkTlsResult ? {
+            verified: zkTlsResult.verified,
+            proofHash: zkTlsResult.proofHash,
+            mode: zkTlsResult.mode,
+            attestation: zkTlsResult.attestation,
+          } : undefined,
+        }),
       });
 
       const result = await response.json();

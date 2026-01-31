@@ -2,17 +2,12 @@
  * OracleLens zkTLS Verification Module
  *
  * Integrates with Primus Labs zkTLS SDK for cryptographic proof of data source.
- * Automatically falls back to mock mode when credentials are not available.
+ * Uses the official SDK flow as per Primus documentation.
  *
  * Environment Variables:
  * - PRIMUS_APP_ID: Application ID from Primus Developer Hub
  * - PRIMUS_APP_SECRET: Application secret
  * - PRIMUS_TEMPLATE_ID: Default template ID for attestations
- *
- * Flow:
- * 1. Data is stored via /api/oracle-data/[requestId] endpoint
- * 2. zkTLS SDK fetches this endpoint and creates proof
- * 3. Proof hash is returned and stored with evaluation
  */
 
 import { createHash } from 'crypto';
@@ -29,6 +24,7 @@ interface ZkVerificationResult {
   timestamp: number;
   mode: 'real' | 'mock';
   error?: string;
+  attestation?: Record<string, unknown>;
 }
 
 interface OracleDataForVerification {
@@ -51,6 +47,7 @@ async function initPrimusSdk(): Promise<boolean> {
   const appSecret = process.env.PRIMUS_APP_SECRET;
 
   if (!appId || !appSecret) {
+    console.log('[zkTLS] Missing PRIMUS_APP_ID or PRIMUS_APP_SECRET');
     return false;
   }
 
@@ -58,9 +55,14 @@ async function initPrimusSdk(): Promise<boolean> {
     // Dynamic import - only works when SDK is installed
     const { PrimusZKTLS } = await import('@primuslabs/zktls-js-sdk');
     primusSdk = new PrimusZKTLS();
-    const result = await primusSdk.init(appId, appSecret, { platform: 'pc' });
+
+    // Init with appId and appSecret
+    // Note: startAttestation requires browser extension (PC) or mobile app
+    // Server-side attestation is not supported by the SDK
+    const result = await primusSdk.init(appId, appSecret);
     primusInitialized = !!result;
-    console.log('[zkTLS] Primus SDK initialized successfully');
+    console.log('[zkTLS] Primus SDK initialized successfully, result:', result);
+    console.log('[zkTLS] Note: Full attestation requires browser extension or mobile app');
     return primusInitialized;
   } catch (error) {
     console.log('[zkTLS] Primus SDK not available, using mock mode:',
@@ -74,36 +76,50 @@ async function realPrimusVerification(
 ): Promise<ZkVerificationResult> {
   const timestamp = Date.now();
   const templateId = process.env.PRIMUS_TEMPLATE_ID;
-  const userAddress = '0x' + createHash('sha256').update(data.oracleName).digest('hex').substring(0, 40);
 
-  // Construct the OracleLens data endpoint URL for verification
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const dataEndpoint = `${baseUrl}/api/oracle-data/${data.requestId}`;
+  if (!templateId) {
+    console.error('[zkTLS] Missing PRIMUS_TEMPLATE_ID');
+    return {
+      success: false,
+      verified: false,
+      proofHash: '',
+      timestamp,
+      mode: 'real',
+      error: 'Missing PRIMUS_TEMPLATE_ID',
+    };
+  }
+
+  // Generate user address from oracle name (deterministic)
+  const userAddress = '0x' + createHash('sha256').update(data.oracleName + data.requestId).digest('hex').substring(0, 40);
 
   try {
-    // Generate attestation request targeting our oracle data endpoint
+    // Step 1: Generate attestation request with template ID and user address
+    console.log(`[zkTLS] Generating request params for template: ${templateId}, user: ${userAddress}`);
     const request = primusSdk.generateRequestParams(templateId, userAddress);
+
+    // Step 2: Set zkTLS mode (proxytls is the default)
     request.setAttMode({ algorithmType: 'proxytls' });
 
-    // Configure the request to fetch from our oracle data endpoint
-    // This allows zkTLS to prove the data came from OracleLens server
-    request.setUrl(dataEndpoint);
-    request.setMethod('GET');
-    request.setResponseFields(['requestId', 'oracle', 'data', 'metadata']);
-
+    // Step 3: Convert request to JSON string
     const requestStr = request.toJsonString();
-    const signedRequest = await primusSdk.sign(requestStr);
+    console.log('[zkTLS] Request params generated');
 
-    // Execute attestation
-    console.log(`[zkTLS] Starting attestation for ${dataEndpoint}`);
-    const attestation = await primusSdk.startAttestation(signedRequest);
+    // Step 4: Sign the request with appSecret
+    const signedRequestStr = await primusSdk.sign(requestStr);
+    console.log('[zkTLS] Request signed successfully');
 
-    // Verify attestation
-    const verified = await primusSdk.verifyAttestation(attestation);
+    // Step 5: Start attestation process
+    // Note: This requires browser extension on PC platform
+    // For server-side, we need to handle this differently
+    console.log('[zkTLS] Starting attestation...');
+    const attestation = await primusSdk.startAttestation(signedRequestStr);
+    console.log('[zkTLS] Attestation received:', JSON.stringify(attestation, null, 2));
 
-    // Generate proof hash
+    // Step 6: Verify the attestation signature
+    const verifyResult = primusSdk.verifyAttestation(attestation);
+    console.log('[zkTLS] Verification result:', verifyResult);
+
+    // Generate proof hash from attestation data
     const proofHash = '0x' + createHash('sha256')
       .update(JSON.stringify({
         recipient: attestation.recipient,
@@ -113,37 +129,49 @@ async function realPrimusVerification(
       }))
       .digest('hex');
 
-    // Extract domain
+    // Extract domain from attestation
     let verifiedDomain: string | undefined;
     try {
-      verifiedDomain = new URL(attestation.request?.url || dataEndpoint).hostname;
+      const attUrl = attestation.request?.url || attestation.url || data.sourceUrl;
+      if (attUrl) {
+        verifiedDomain = new URL(attUrl).hostname;
+      }
     } catch { /* ignore */ }
 
-    console.log(`[zkTLS] Attestation complete: verified=${verified}, domain=${verifiedDomain}`);
+    console.log(`[zkTLS] Attestation complete: verified=${verifyResult}, domain=${verifiedDomain}, proofHash=${proofHash}`);
 
     return {
       success: true,
-      verified: verified === true,
+      verified: verifyResult === true,
       proofHash,
       verifiedDomain,
       timestamp,
       mode: 'real',
+      attestation: attestation as Record<string, unknown>,
     };
   } catch (error) {
-    console.error('[zkTLS] Real verification failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Primus verification failed';
+    console.error('[zkTLS] Real verification failed:', errorMessage);
+
+    // Check for specific error types
+    if (errorMessage.includes('window') || errorMessage.includes('postMessage')) {
+      console.log('[zkTLS] Browser extension required for attestation, falling back to mock');
+      return mockVerification(data);
+    }
+
     return {
       success: false,
       verified: false,
       proofHash: '',
       timestamp,
       mode: 'real',
-      error: error instanceof Error ? error.message : 'Primus verification failed',
+      error: errorMessage,
     };
   }
 }
 
 // ============================================
-// Mock Verification (used when no credentials)
+// Mock Verification (used when no credentials or browser not available)
 // ============================================
 
 function mockVerification(
@@ -170,6 +198,8 @@ function mockVerification(
     } catch { /* ignore */ }
   }
 
+  console.log(`[zkTLS] Mock verification: verified=${verified}, proofHash=${proofHash}`);
+
   return {
     success: true,
     verified,
@@ -192,8 +222,13 @@ function mockVerification(
 export async function verifyOracleDataSource(
   data: OracleDataForVerification
 ): Promise<ZkVerificationResult> {
+  console.log('[zkTLS] Starting verification for:', data.oracleName, data.dataType);
+  console.log('[zkTLS] Environment check - PRIMUS_APP_ID:', process.env.PRIMUS_APP_ID ? 'set' : 'not set');
+  console.log('[zkTLS] Environment check - PRIMUS_APP_SECRET:', process.env.PRIMUS_APP_SECRET ? 'set' : 'not set');
+  console.log('[zkTLS] Environment check - PRIMUS_TEMPLATE_ID:', process.env.PRIMUS_TEMPLATE_ID ? 'set' : 'not set');
+
   // Try to initialize real SDK (only once)
-  if (!primusInitialized && process.env.PRIMUS_APP_ID) {
+  if (!primusInitialized && process.env.PRIMUS_APP_ID && process.env.PRIMUS_APP_SECRET) {
     await initPrimusSdk();
   }
 
@@ -204,6 +239,6 @@ export async function verifyOracleDataSource(
   }
 
   // Fall back to mock
-  console.log('[zkTLS] Using mock verification (no Primus credentials)');
+  console.log('[zkTLS] Using mock verification (Primus SDK not available)');
   return mockVerification(data);
 }

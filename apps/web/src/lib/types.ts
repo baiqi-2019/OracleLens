@@ -7,12 +7,28 @@
 // API Request/Response Types
 // ============================================
 
+// Client-side zkTLS verification result from browser extension
+export interface ClientZkTlsResult {
+  verified: boolean;
+  proofHash: string;
+  mode: 'real' | 'extension_not_found';
+  attestation?: {
+    recipient: string;
+    data: string;
+    timestamp: number;
+    signatures: string[];
+    [key: string]: unknown;
+  };
+}
+
 export interface EvaluateRequest {
   oracleName: string;
   dataType: string;
   dataValue: Record<string, unknown>;
   sourceUrl?: string;
   referenceValues?: number[];
+  // Optional: Frontend zkTLS verification result (from browser extension)
+  clientZkTls?: ClientZkTlsResult;
 }
 
 export interface EvaluateResponse {
@@ -42,6 +58,7 @@ export interface EvaluateResponse {
   // zkTLS info
   zkVerified: boolean;
   proofHash: string;
+  zkMode?: 'real' | 'mock' | 'client'; // client = browser extension verified
 
   // On-chain submission result
   onChain?: {
