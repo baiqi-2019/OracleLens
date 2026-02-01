@@ -29,7 +29,7 @@ const STEP_ICONS = [
 ];
 
 // Time intervals between steps (ms) - simulated progression
-const STEP_INTERVALS = [400, 800, 600, 1000, 1200, 500, 800, 600];
+const STEP_INTERVALS = [700, 750, 700, 800, 800, 700, 750, 700];
 
 function ProgressModal({ currentStep, steps }: { currentStep: number; steps: string[] }) {
   return (
