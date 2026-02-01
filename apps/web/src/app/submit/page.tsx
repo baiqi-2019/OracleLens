@@ -314,7 +314,7 @@ export default function SubmitPage() {
     await doEvaluate(request);
   };
 
-  const presetKeys: MockDataKey[] = ['chainlink_eth_usd', 'pyth_btc_usd', 'weather_nyc', 'suspicious_unknown'];
+  const presetKeys: MockDataKey[] = ['chainlink_eth_usd', 'pyth_btc_usd', 'weather_nyc'];
 
   const progressSteps: string[] = (t.submit as any).progress?.steps ?? [];
 
@@ -374,7 +374,6 @@ export default function SubmitPage() {
           <div className="grid gap-4">
             {presetKeys.map((key) => {
               const preset = t.submit.presets[key];
-              const isSuspicious = key === 'suspicious_unknown';
 
               return (
                 <label
@@ -387,22 +386,16 @@ export default function SubmitPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <span className={`font-semibold ${isSuspicious ? 'text-amber-600' : 'text-gray-900'}`}>
+                        <span className="font-semibold text-gray-900">
                           {preset.label}
                         </span>
-                        {isSuspicious && (
-                          <span className="badge badge-warning">
-                            TEST
-                          </span>
-                        )}
                       </div>
                       <p className="text-sm text-gray-600 mt-1">{preset.desc}</p>
                     </div>
                     <div className={`w-3 h-3 rounded-full ${
                       key === 'chainlink_eth_usd' ? 'bg-emerald-500' :
-                      key === 'pyth_btc_usd' ? 'bg-emerald-500' :
-                      key === 'weather_nyc' ? 'bg-blue-500' :
-                      'bg-amber-500'
+                      key === 'pyth_btc_usd' ? 'bg-purple-500' :
+                      'bg-blue-500'
                     }`}></div>
                     <input
                       type="radio"

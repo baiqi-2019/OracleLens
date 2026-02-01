@@ -87,7 +87,7 @@ export const translations = {
       // Preset options
       presets: {
         chainlink_eth_usd: { label: 'Chainlink ETH/USD', desc: 'Highly trusted price feed with fresh data' },
-        pyth_btc_usd: { label: 'Pyth BTC/USD', desc: 'Trusted price feed with very fresh data' },
+        pyth_btc_usd: { label: 'Chiang Mai Gov Subsidy', desc: 'Government subsidy status data from Chiang Mai' },
         weather_nyc: { label: 'Weather NYC', desc: 'Weather data from WeatherAPI' },
         suspicious_unknown: { label: 'Suspicious Unknown Oracle', desc: 'Unknown source with stale, deviating data' },
       },
@@ -255,7 +255,7 @@ export const translations = {
       // Preset options
       presets: {
         chainlink_eth_usd: { label: 'Chainlink ETH/USD', desc: '高度可信的价格源，数据新鲜' },
-        pyth_btc_usd: { label: 'Pyth BTC/USD', desc: '可信的价格源，数据非常新鲜' },
+        pyth_btc_usd: { label: '清迈政府补贴', desc: '清迈政府补贴发放状态数据' },
         weather_nyc: { label: '纽约天气', desc: '来自WeatherAPI的天气数据' },
         suspicious_unknown: { label: '可疑的未知预言机', desc: '未知来源，数据过时且有偏差' },
       },

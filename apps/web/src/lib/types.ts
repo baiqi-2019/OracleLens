@@ -94,15 +94,17 @@ export const MOCK_ORACLE_DATA = {
   },
 
   pyth_btc_usd: {
-    oracleName: 'Pyth',
-    dataType: 'price_feed',
+    oracleName: 'Chiang Mai Gov',
+    dataType: 'generic',
     dataValue: {
-      asset: 'BTC/USD',
-      price: 43250.00,
-      timestamp: Date.now() - 15000,
+      asset: 'Subsidy/Status',
+      status: 'approved',
+      amount: 5000,
+      currency: 'THB',
+      timestamp: Date.now() - 60000,
     },
-    sourceUrl: 'https://pyth.network/price-feeds/crypto-btc-usd',
-    referenceValues: [43245.00, 43260.00, 43255.00],
+    sourceUrl: 'https://www.chiangmai.go.th/subsidy',
+    referenceValues: [5000, 5000, 5000],
   },
 
   weather_nyc: {
